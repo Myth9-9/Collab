@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Whiteboard</title>
+    <link rel="stylesheet" href="/style.css" />
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand">AI Whiteboard</div>
+        <div class="tools">
+            <select id="tool">
+                <option value="select">Select</option>
+                <option value="pen">Pen</option>
+                <option value="rect">Rectangle</option>
+                <option value="ellipse">Ellipse</option>
+                <option value="arrow">Arrow</option>
+                <option value="text">Text</option>
+            </select>
+            <input id="stroke" type="color" value="#2b2b2b" />
+            <input id="thickness" type="range" min="1" max="16" value="3" />
+            <button id="undo">Undo</button>
+            <button id="redo">Redo</button>
+            <button id="tidy">AI: Tidy</button>
+            <button id="export">Export PNG</button>
+            <a id="share" class="share" href="#" target="_blank">Share board</a>
+        </div>
+        <div class="auth">
+            <span id="whoami">Guest</span>
+            <button id="loginBtn">Login</button>
+            <button id="logoutBtn" style="display:none">Logout</button>
+        </div>
+    </header>
+
+
+    <section class="ai-panel">
+        <details>
+            <summary>AI: Generate Flowchart from Text</summary>
+            <textarea id="ai-input" rows="4"
+                placeholder="Example:\nStart -> Validate -> Process -> Save -> End\nor\nStart\nValidate\nProcess\nSave\nEnd"></textarea>
+            <div class="row">
+                <button id="ai-generate">Generate</button>
+                <small>Creates boxes and arrows in a vertical flow.</small>
+            </div>
+        </details>
+    </section>
+
+
+    <main id="stage-wrapper">
+        <canvas id="board" width="1600" height="900"></canvas>
+    </main>
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="/ai.js"></script>
+    <script type="module" src="/app.js"></script>
+    <!-- Login modal -->
+    <div id="authModal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); align-items:center; justify-content:center;">
+        <div style="background:#1b1f2d; padding:16px; border-radius:10px; min-width:280px;">
+            <h3 style="margin-top:0">Sign in</h3>
+            <input id="authEmail" placeholder="email" style="width:100%; margin:6px 0;" />
+            <input id="authPass" type="password" placeholder="password" style="width:100%; margin:6px 0;" />
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button id="doSignup">Sign up</button>
+                <button id="doLogin">Login</button>
+                <button id="closeAuth">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        const whoami = document.getElementById('whoami');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const authModal = document.getElementById('authModal');
+        const authEmail = document.getElementById('authEmail');
+        const authPass = document.getElementById('authPass');
+        const doLogin = document.getElementById('doLogin');
+        const doSignup = document.getElementById('doSignup');
+        const closeAuth = document.getElementById('closeAuth');
+
+        async function refreshMe() {
+            const r = await fetch('/api/auth/me', { credentials: 'include' });
+            if (!r.ok) {
+                whoami.textContent = 'Guest';
+                loginBtn.style.display = 'inline-block';
+                logoutBtn.style.display = 'none';
+                return;
+            }
+            const { user } = await r.json();
+            whoami.textContent = user?.email || 'User';
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'inline-block';
+        }
+
+        loginBtn.onclick = () => authModal.style.display = 'flex';
+        closeAuth.onclick = () => authModal.style.display = 'none';
+
+        doSignup.onclick = async () => {
+            const r = await fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email: authEmail.value, password: authPass.value })
+            });
+            if (r.ok) { authModal.style.display = 'none'; await refreshMe(); location.reload(); }
+            else alert('Sign up failed');
+        };
+
+        doLogin.onclick = async () => {
+            const r = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email: authEmail.value, password: authPass.value })
+            });
+            if (r.ok) { authModal.style.display = 'none'; await refreshMe(); location.reload(); }
+            else alert('Login failed');
+        };
+
+        logoutBtn.onclick = async () => {
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            await refreshMe();
+            location.reload();
+        };
+
+        // On first load, update header
+        refreshMe();
+    </script>
+</body>
+
+</html>

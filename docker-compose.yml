@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: whiteboard
+      POSTGRES_PASSWORD: whiteboard_pw
+      POSTGRES_DB: whiteboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+
+  ai:
+    build:
+      context: ./ai_service
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_NAME: ${COOKIE_NAME}
+    ports:
+      - "8000:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  app:
+    build:
+      context: .
+    environment:
+      PORT: 3000
+      PYTHON_API_BASE: http://ai:8000
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: whiteboard
+      PGPASSWORD: whiteboard_pw
+      PGDATABASE: whiteboard
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_NAME: ${COOKIE_NAME}
+      JWT_EXPIRES_DAYS: ${JWT_EXPIRES_DAYS}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - ai
+
+volumes:
+  dbdata:

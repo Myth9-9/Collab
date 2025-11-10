@@ -1,0 +1,43 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS boards (
+  id TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS shapes (
+  id TEXT PRIMARY KEY,
+  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS events (
+  id BIGSERIAL PRIMARY KEY,
+  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  display_name TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS board_members (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('owner','editor','viewer')),
+  PRIMARY KEY (user_id, board_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_shapes_board ON shapes(board_id);
+CREATE INDEX IF NOT EXISTS idx_events_board ON events(board_id);
+
+INSERT INTO boards (id) VALUES ('default') ON CONFLICT DO NOTHING;
